@@ -1,8 +1,8 @@
-OBJS = main.o config.o
+OBJS = main.o config.o rsa.o
 CC = gcc
-CFLAGS = -Wall -O -g
+CFLAGS = -Wall -O -g -lcrypto
 kmc : $(OBJS)
-	$(CC) $^ -o $@
+	$(CC) $^ -o $@	
 	
 clean:
 	rm kmc $(OBJS)
