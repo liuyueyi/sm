@@ -2,7 +2,7 @@
  * aes.c
  *
  *  Created on: 2014-8-21
- *      Author: wzb
+ *      Author: pc
  */
 
 #include "rsa.h"
@@ -121,7 +121,7 @@ char *rsa_decrypt(const char *cipher, const char *sk_filename)
 	if (NULL == (plain_text = (unsigned char *) malloc(len + 1)))
 	{
 		RSA_free(rsa);
-		return NULL ;
+		return NULL;
 	}
 	memset(plain_text, 0, len + 1);
 

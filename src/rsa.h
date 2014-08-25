@@ -25,9 +25,9 @@ char *base64(const unsigned char *a, int length);
 
 unsigned char *debase64(const char *a, int length);
 
-char *rsa_encrypt(const char *clear_text, const char *sk_filename);
+char *rsa_encrypt(const char *plain_text, const char *pk_filename);
 
-char *rsa_decrypt(const char *cipher, const char *pk_filename);
+char *rsa_decrypt(const char *cipher, const char *sk_filename);
 
 char *rsa_sign(const char *text, const char *sk_filename);
 

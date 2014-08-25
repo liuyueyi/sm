@@ -47,8 +47,24 @@ char *get_second_column(const char *line)
 	{
 		ptr = strtok(NULL, " \n\t\f\r\v");
 	}
+	char *temp = (char *) malloc(sizeof(char) * (3 + strlen(ptr)));
+	if(temp == NULL)
+	{
+		printf("error\n");
+		return NULL;
+	}
 
-	return ptr;
+	int i = 0, j = 0;
+	while (i < strlen(ptr))
+	{
+		if (i % 64 == 0 && i != 0)
+		{
+			temp[j++] = '\n';
+		}
+		temp[j++] = ptr[i++];
+	}
+	temp[j] = '\0';
+	return temp;
 }
 
 char *get_third_column(const char *line)
@@ -89,7 +105,7 @@ int get_uuid_number(const char *line)
 	return num;
 }
 
-int print_a_by_b(const char *key, const int type)
+int print_a_by_b(const char *key, const int type, const struct ENCRYPT *en)
 {
 	char content[MAX_SIZE];
 	char *ptr = NULL;
@@ -102,8 +118,9 @@ int print_a_by_b(const char *key, const int type)
 
 	while (!feof(f))
 	{
-		if(NULL == fgets(content, MAX_SIZE, f))
+		if (NULL == fgets(content, MAX_SIZE, f))
 			continue;
+
 		content[strlen(content) - 2] = '\0'; // remove the newline character
 		if (0 != is_comment(content) && strstr(content, key) != NULL )
 		{
@@ -115,9 +132,27 @@ int print_a_by_b(const char *key, const int type)
 					printf("%s\n", ptr);
 				break;
 			case 1:
-				ptr = get_second_column(content);
+				if (NULL == en)
+				{
+					printf("error:key error!\n");
+					fclose(f);
+					return -1;
+				}
+
+				ptr = get_second_column(content); // print key
 				if (NULL != ptr)
-					printf("%s\n", ptr);
+				{
+					char *temp = NULL;
+					if (NULL != (temp = (*(en->decrypt))(ptr, en->sk_filename)))
+					{
+						printf("%s\n", temp);
+						free(temp);
+					}
+					else
+					{
+						printf("error:can not get key!\n");
+					}
+				}
 				break;
 			case 2:
 				ptr = get_third_column(content);
@@ -143,32 +178,32 @@ int print_a_by_b(const char *key, const int type)
 
 int print_uuid_by_id(const char *id)
 {
-	return print_a_by_b(id, 2);
+	return print_a_by_b(id, 2, NULL );
 }
 
 int print_id_by_uuid(const char *uuid)
 {
-	return print_a_by_b(uuid, 0);
+	return print_a_by_b(uuid, 0, NULL );
 }
 
-int print_key_by_id(const char *id)
+int print_key_by_id(const char *id, const struct ENCRYPT *en)
 {
-	return print_a_by_b(id, 1);
+	return print_a_by_b(id, 1, en);
 }
 
-int print_key_by_uuid(const char *uuid)
+int print_key_by_uuid(const char *uuid, const struct ENCRYPT *en)
 {
-	return print_a_by_b(uuid, 1);
+	return print_a_by_b(uuid, 1, en);
 }
 
 int print_id_and_uuid_by_id_or_uuid(const char *key)
 {
-	return print_a_by_b(key, 3);
+	return print_a_by_b(key, 3, NULL );
 }
 
 int print_all_id_and_uuid()
 {
-	return print_a_by_b(" ", 3);
+	return print_a_by_b(" ", 3, NULL );
 }
 
 char *remove_sub_string(const char *line, const char *uuid)
@@ -207,7 +242,6 @@ int remove_uuid(const char *uuid)
 	FILE *f2 = NULL;
 	char line[MAX_SIZE];
 	char *result;
-	int i;
 
 	if (NULL == (f = fopen(config_filename, open_mode[0])) || NULL == (f2 =
 			fopen(temp_config_filename, open_mode[1])))
@@ -302,7 +336,6 @@ int update_uuid(const char *id, const char *uuid)
 	FILE *f2 = NULL;
 	char line[MAX_SIZE];
 	char *result;
-	int i;
 
 	switch (judge_id(id))
 	{
@@ -312,6 +345,7 @@ int update_uuid(const char *id, const char *uuid)
 	case -1:
 		printf("error: fail to open the configure file!\n");
 		return -1;
+		break;
 	default:
 		break;
 	}
@@ -346,7 +380,8 @@ int update_uuid(const char *id, const char *uuid)
 				int number = get_uuid_number(line);
 				if (number >= 10)
 				{
-					printf("error:number exceed, please select another volume key\n");
+					printf(
+							"error:number exceed, please select another volume key\n");
 					return -1;
 				}
 				if (number >= 0)

@@ -1,6 +1,6 @@
 /*
  * main.c
- * main function
+ *
  *  Created on: 2014-8-19
  *      Author: pc
  */
@@ -62,8 +62,15 @@ volume key and volume key relation operation interface.\n\
 Mandatory arguments to long options are mandatory for short options too.\n\
 "),
 			stdout);
-	fputs(("\
+	fputs(
+			("\
   -l, --list        list the information of the volume .\n\
+                    egg:\n\
+                      kmc -l \n\
+                      kmc -l -i=10000004 -u \n\
+                      kmc -l -u=550E8400-E29B-11D4-A716-44665544asdf \n\
+                      kmc -l -i=10000004 -k\n\
+                      kmc -l -u=550E8400-E29B-11D4-A716-44665544asdf -k \n\
 "),
 			stdout);
 	fputs(
@@ -87,6 +94,7 @@ Mandatory arguments to long options are mandatory for short options too.\n\
 			("\
   -i, --id[=ID]     volume key id\n\
   -u, --uuid[=uuid] volume uuid\n\
+  -k, --plain_key   get the plan_key\n\
 "),
 			stdout);
 	fputs(("\n\
@@ -161,7 +169,7 @@ int decode_switch(int argc, char **argv, struct kmc_option *x)
 	return optind;
 }
 
-int command(const struct kmc_option *x)
+int command(const struct kmc_option *x, const struct ENCRYPT *en)
 {
 	if (x->mode != 1)
 	{
@@ -185,7 +193,7 @@ int command(const struct kmc_option *x)
 		{
 			if (x->plain_key_mode == 1)
 			{
-				return print_key_by_uuid(x->uuid);
+				return print_key_by_uuid(x->uuid, en);
 			}
 			else if (x->id_mode == 1)
 			{
@@ -200,7 +208,7 @@ int command(const struct kmc_option *x)
 		{
 			if (x->plain_key_mode == 1)
 			{
-				return print_key_by_id(x->id);
+				return print_key_by_id(x->id, en);
 			}
 			else if (x->uuid_mode == 1)
 			{
@@ -258,13 +266,15 @@ int command(const struct kmc_option *x)
 int main(int argc, char ** argv)
 {
 	int status;
+	struct ENCRYPT *en = set_encryption_method("rsa", "test.key", "test_pub.key");
 	struct kmc_option *x = (struct kmc_option *) malloc(
 			sizeof(struct kmc_option));
 	if (x != NULL )
 	{
 		kmc_option_init(x);
 		decode_switch(argc, argv, x);
-		status = command(x);
+		status = command(x, en);
+		free(en);
 		free(x);
 		return status;
 	}
