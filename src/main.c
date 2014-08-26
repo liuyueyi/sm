@@ -274,9 +274,6 @@ int main(int argc, char ** argv)
 		kmc_option_init(x);
 		decode_switch(argc, argv, x);
 		status = command(x, en);
-		//char *temp = "DdLLXsLSUqZB9PiVbefj0h+kg8cvHeFfAYPOPKv4sRyzf5o+DRiRVZ/4cNCDYIIBEF/wgXKlsKxgEdI5cnhlZ6vGmCVtA3g9guSzhpAD2bDsnTvO6iKWWjTyRlvufPSjTJnD11a2sdd9T+x0k7CJA3D14TkfKhaFQFzxDSX08FA=";
-		//char *temp2 = (*(en->decrypt))(temp, en->sk_filename);
-		//printf("temp2=%s\n", temp2);
 		free(en);
 		free(x);
 		return status;

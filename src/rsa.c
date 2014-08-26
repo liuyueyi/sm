@@ -25,6 +25,11 @@ char *base64(const char *input, int length)
 	BIO_get_mem_ptr(b64, &bptr);
 
 	char * buff = (char *) malloc(bptr->length + 1);
+	if (NULL == buff)
+	{
+		printf("error:base64 error!\n");
+		return NULL ;
+	}
 	memcpy(buff, bptr->data, bptr->length);
 	buff[bptr->length] = 0;
 
@@ -37,7 +42,12 @@ char *debase64(char *input, int length)
 {
 	BIO * b64 = NULL;
 	BIO * bmem = NULL;
-	char * buffer = (char *) malloc(length);
+	char * buffer = (char *) malloc(length + 1);
+	if (NULL == buffer)
+	{
+		printf("error:debase64 error!\n");
+		return NULL ;
+	}
 	memset(buffer, 0, length);
 
 	b64 = BIO_new(BIO_f_base64());
@@ -51,7 +61,8 @@ char *debase64(char *input, int length)
 	return buffer;
 }
 
-char *rsa_encrypt(const char *plain_text, char *result, int size, const char *pk_filename)
+char *rsa_encrypt(const char *plain_text, char *result, int size,
+		const char *pk_filename)
 {
 	unsigned char *cipher;
 	int len;
@@ -96,7 +107,8 @@ char *rsa_encrypt(const char *plain_text, char *result, int size, const char *pk
 	return result;
 }
 
-char *rsa_decrypt(const char *cipher, char *plain_text, int size, const char *sk_filename)
+char *rsa_decrypt(const char *cipher, char *plain_text, int size,
+		const char *sk_filename)
 {
 	FILE *file = NULL;
 	RSA *rsa;
@@ -115,14 +127,14 @@ char *rsa_decrypt(const char *cipher, char *plain_text, int size, const char *sk
 	fclose(file);
 
 	len = RSA_size(rsa);
-	if(len +1 > size)
+	if (len + 1 > size)
 	{
 		RSA_free(rsa);
-		return NULL;
+		return NULL ;
 	}
 	memset(plain_text, 0, size);
 
-	char *temp = (char *)debase64(cipher, strlen(cipher));
+	char *temp = (char *) debase64(cipher, strlen(cipher));
 	if (0
 			> RSA_private_decrypt(len, (unsigned char *) temp,
 					(unsigned char*) plain_text, rsa, RSA_NO_PADDING))
@@ -137,7 +149,8 @@ char *rsa_decrypt(const char *cipher, char *plain_text, int size, const char *sk
 	return plain_text;
 }
 
-char *rsa_sign(const char *text, char *signature, int size, const char *sk_filename)
+char *rsa_sign(const char *text, char *signature, int size,
+		const char *sk_filename)
 {
 	RSA *rsa;
 	FILE *file;
