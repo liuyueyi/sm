@@ -10,53 +10,48 @@
 const char *RSA_SK = "test.key";
 const char *RSA_PK = "test_pub.key";
 
-char *base64(const unsigned char *a, int length)
+char *base64(const char *input, int length)
 {
-	EVP_ENCODE_CTX ectx;
-	int size = length * 2;
-	size = size > 64 ? size : 64;
-	unsigned char* out = NULL;
-	int outlen = 0;
-	int tlen = 0;
+	BIO * bmem = NULL;
+	BIO * b64 = NULL;
+	BUF_MEM * bptr = NULL;
 
-	if (NULL == (out = (unsigned char*) malloc(sizeof(char) * size)))
-	{
-		printf("error: base64 error, can not encrypt the volume key\n");
-		return NULL ;
-	}
+	b64 = BIO_new(BIO_f_base64());
+	BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+	bmem = BIO_new(BIO_s_mem());
+	b64 = BIO_push(b64, bmem);
+	BIO_write(b64, input, length);
+	BIO_flush(b64);
+	BIO_get_mem_ptr(b64, &bptr);
 
-	EVP_EncodeInit(&ectx);
-	EVP_EncodeUpdate(&ectx, out, &outlen, a, length);
-	tlen += outlen;
-	EVP_EncodeFinal(&ectx, out + tlen, &outlen);
-	tlen += outlen;
+	char * buff = (char *) malloc(bptr->length + 1);
+	memcpy(buff, bptr->data, bptr->length);
+	buff[bptr->length] = 0;
 
-	return (char *) out;
+	BIO_free_all(b64);
+
+	return buff;
 }
 
-unsigned char *debase64(const char *a, int length)
+char *debase64(char *input, int length)
 {
-	EVP_ENCODE_CTX ectx;
-	unsigned char* out = NULL;
-	int outlen = 0;
-	int tlen = 0;
+	BIO * b64 = NULL;
+	BIO * bmem = NULL;
+	char * buffer = (char *) malloc(length);
+	memset(buffer, 0, length);
 
-	if (NULL == (out = (unsigned char*) malloc(sizeof(char) * length)))
-	{
-		printf("error:debase64 error, can not decrypt the volume key\n");
-		return NULL ;
-	}
+	b64 = BIO_new(BIO_f_base64());
+	BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
+	bmem = BIO_new_mem_buf(input, length);
+	bmem = BIO_push(b64, bmem);
+	BIO_read(bmem, buffer, length);
 
-	EVP_DecodeInit(&ectx);
-	EVP_DecodeUpdate(&ectx, out, &outlen, (const unsigned char*) a, length);
-	tlen += outlen;
-	EVP_DecodeFinal(&ectx, out + tlen, &outlen);
-	tlen += outlen;
-	out[tlen] = 0;
-	return out;
+	BIO_free_all(bmem);
+
+	return buffer;
 }
 
-char *rsa_encrypt(const char *plain_text, const char *pk_filename)
+char *rsa_encrypt(const char *plain_text, char *result, int size, const char *pk_filename)
 {
 	unsigned char *cipher;
 	int len;
@@ -93,14 +88,16 @@ char *rsa_encrypt(const char *plain_text, const char *pk_filename)
 	}
 
 	RSA_free(rsa);
-	char *result = base64(cipher, strlen((char *) cipher));
+
+	char *temp = base64((char *) cipher, strlen((char *) cipher));
+	strcpy(result, temp);
 	free(cipher);
+	free(temp);
 	return result;
 }
 
-char *rsa_decrypt(const char *cipher, const char *sk_filename)
+char *rsa_decrypt(const char *cipher, char *plain_text, int size, const char *sk_filename)
 {
-	unsigned char *plain_text;
 	FILE *file = NULL;
 	RSA *rsa;
 	int len;
@@ -118,14 +115,14 @@ char *rsa_decrypt(const char *cipher, const char *sk_filename)
 	fclose(file);
 
 	len = RSA_size(rsa);
-	if (NULL == (plain_text = (unsigned char *) malloc(len + 1)))
+	if(len +1 > size)
 	{
 		RSA_free(rsa);
 		return NULL;
 	}
-	memset(plain_text, 0, len + 1);
+	memset(plain_text, 0, size);
 
-	char *temp = (char *) debase64(cipher, strlen(cipher));
+	char *temp = (char *)debase64(cipher, strlen(cipher));
 	if (0
 			> RSA_private_decrypt(len, (unsigned char *) temp,
 					(unsigned char*) plain_text, rsa, RSA_NO_PADDING))
@@ -137,10 +134,10 @@ char *rsa_decrypt(const char *cipher, const char *sk_filename)
 
 	RSA_free(rsa);
 	free(temp);
-	return (char *) plain_text;
+	return plain_text;
 }
 
-char *rsa_sign(const char *text, const char *sk_filename)
+char *rsa_sign(const char *text, char *signature, int size, const char *sk_filename)
 {
 	RSA *rsa;
 	FILE *file;
@@ -174,10 +171,12 @@ char *rsa_sign(const char *text, const char *sk_filename)
 		RSA_free(rsa);
 		return NULL ;
 	}
-	char *buf = base64(sig, strlen((char *) sig));
+	char *buf = base64((char *) sig, strlen((char *) sig));
 	free(sig);
 	RSA_free(rsa);
-	return buf;
+	strcpy(signature, buf);
+	free(buf);
+	return signature;
 }
 
 int rsa_verify(const char *text, const char *sig, const char *pk_filename)

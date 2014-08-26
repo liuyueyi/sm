@@ -22,15 +22,15 @@ char *get_second_column(const char *line);
 
 char *get_third_column(const char *line);
 
-int print_a_by_b(const char *key, const int type, const struct ENCRYPT *en);
+int print_a_by_b(const char *key, const int type, const struct encrypt_operations *en);
 
 int print_uuid_by_id(const char *id);
 
 int print_id_by_uuid(const char *uuid);
 
-int print_key_by_id(const char *id, const struct ENCRYPT *en);
+int print_key_by_id(const char *id, const struct encrypt_operations *en);
 
-int print_key_by_uuid(const char *uuid, const struct ENCRYPT *en);
+int print_key_by_uuid(const char *uuid, const struct encrypt_operations *en);
 
 int print_id_and_uuid_by_id_or_uuid(const char *key);
 

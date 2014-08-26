@@ -7,10 +7,10 @@
 
 #include "encrypt.h"
 
-struct ENCRYPT * set_encryption_method(const char *method,
+struct encrypt_operations * set_encryption_method(const char *method,
 		const char *sk_filename, const char *pk_filename)
 {
-	struct ENCRYPT *en = (struct ENCRYPT *) malloc(sizeof(struct ENCRYPT));
+	struct encrypt_operations *en = (struct encrypt_operations *) malloc(sizeof(struct encrypt_operations));
 	if (NULL == en)
 		return NULL ;
 

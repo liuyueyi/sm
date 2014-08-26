@@ -1,0 +1,13 @@
+objects = main.o config.o
+
+kmc:$(objects)
+	gcc -o kmc $(objects)
+
+main.o:main.c
+	gcc -c main.c
+
+config.o:config.c config.c
+	gcc -c config.c
+	
+clean:
+	rm kmc $(objects)

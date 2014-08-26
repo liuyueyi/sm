@@ -47,24 +47,8 @@ char *get_second_column(const char *line)
 	{
 		ptr = strtok(NULL, " \n\t\f\r\v");
 	}
-	char *temp = (char *) malloc(sizeof(char) * (3 + strlen(ptr)));
-	if(temp == NULL)
-	{
-		printf("error\n");
-		return NULL;
-	}
 
-	int i = 0, j = 0;
-	while (i < strlen(ptr))
-	{
-		if (i % 64 == 0 && i != 0)
-		{
-			temp[j++] = '\n';
-		}
-		temp[j++] = ptr[i++];
-	}
-	temp[j] = '\0';
-	return temp;
+	return ptr;
 }
 
 char *get_third_column(const char *line)
@@ -105,7 +89,8 @@ int get_uuid_number(const char *line)
 	return num;
 }
 
-int print_a_by_b(const char *key, const int type, const struct ENCRYPT *en)
+int print_a_by_b(const char *key, const int type,
+		const struct encrypt_operations *en)
 {
 	char content[MAX_SIZE];
 	char *ptr = NULL;
@@ -143,10 +128,14 @@ int print_a_by_b(const char *key, const int type, const struct ENCRYPT *en)
 				if (NULL != ptr)
 				{
 					char *temp = NULL;
-					if (NULL != (temp = (*(en->decrypt))(ptr, en->sk_filename)))
+					char result[200];
+					char tt[250];
+					strcpy(tt, ptr);
+					if (NULL
+							!= (temp = (*(en->decrypt))(tt, result, 200,
+									en->sk_filename)))
 					{
-						printf("%s\n", temp);
-						free(temp);
+						printf("%s\n", result);
 					}
 					else
 					{
@@ -186,12 +175,12 @@ int print_id_by_uuid(const char *uuid)
 	return print_a_by_b(uuid, 0, NULL );
 }
 
-int print_key_by_id(const char *id, const struct ENCRYPT *en)
+int print_key_by_id(const char *id, const struct encrypt_operations *en)
 {
 	return print_a_by_b(id, 1, en);
 }
 
-int print_key_by_uuid(const char *uuid, const struct ENCRYPT *en)
+int print_key_by_uuid(const char *uuid, const struct encrypt_operations *en)
 {
 	return print_a_by_b(uuid, 1, en);
 }
