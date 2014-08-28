@@ -195,9 +195,7 @@ int rsa_verify(const char *text, const char *sig, const char *pk_filename)
 
 	char sig_temp[250];
 	if(NULL == debase64(sig, strlen((char *) sig), sig_temp, 250))
-	{
-		return -1;
-	}
+		return -1;	
 
 	unsigned char temp[50];
 	SHA((const unsigned char *) text, strlen(text), temp);

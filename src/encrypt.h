@@ -12,11 +12,11 @@
 
 struct encrypt_operations
 {
-	char *(*encrypt)(const char *plain_text, char *result, int size,
+	char *(*encrypt)(const char *plain_text, char *result, size_t size,
 			const char *pk_filename);
-	char *(*decrypt)(const char *cipher, char *result, int size,
+	char *(*decrypt)(const char *cipher, char *result, size_t size,
 			const char *sk_filename);
-	char *(*sign)(const char *text, char *signature, int size,
+	char *(*sign)(const char *text, char *signature, size_t size,
 			const char *sk_filename);
 	int (*verify)(const char *text, const char *signature,
 			const char *pk_filename);

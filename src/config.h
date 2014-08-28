@@ -8,6 +8,7 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
+#include <sys/file.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

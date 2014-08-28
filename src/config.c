@@ -7,8 +7,7 @@
  */
 #include "config.h"
 
-const int MAX_NUM = 10;
-
+#define UUID_MAX_NUM  10
 #define string_space " \n\t\f\r\v"
 const char *get_column(char *line, int col)
 {
@@ -48,13 +47,19 @@ int do_getline(const char *pathname,
 	int ret = 0;
 	char line[LINE_MAX];
 
-	//int lockf = open("/tmp/xxx.lock", O_CREAT | O_EXCL);
 	FILE *f = fopen(pathname, "r");
 
 	if (NULL == f)
 	{
 		fprintf(stderr, "could not open conf %s\n", pathname);
 		return -ENOENT;
+	}
+
+	if (0 != flock(fileno(f), LOCK_SH | LOCK_NB))
+	{
+		// if file locked, then exit
+		fprintf(stderr, "%s used, try later\n", pathname);
+		exit(-1);
 	}
 
 	while (fgets(line, LINE_MAX, f))
@@ -77,6 +82,7 @@ int do_getline(const char *pathname,
 			break;
 	}
 
+	flock(fileno(f), LOCK_UN);
 	fclose(f);
 	return ret;
 }
@@ -88,7 +94,6 @@ int do_putline(const char *pathname, const char *temp_pathname,
 {
 	char line[LINE_MAX];
 
-	//int lockf = open("/tmp/xxx.lock", O_CREAT | O_EXCL);
 	FILE *f = fopen(pathname, "r");
 	FILE *f2 = fopen(temp_pathname, "w");
 
@@ -96,6 +101,13 @@ int do_putline(const char *pathname, const char *temp_pathname,
 	{
 		fprintf(stderr, "could not open conf %s\n", pathname);
 		return -ENOENT;
+	}
+
+	if (0 != flock(fileno(f), LOCK_EX | LOCK_NB))
+	{
+		// if file locked, then exit
+		fprintf(stderr, "%s used, try later\n", pathname);
+		exit(-1);
 	}
 
 	while (fgets(line, LINE_MAX, f))
@@ -117,6 +129,7 @@ int do_putline(const char *pathname, const char *temp_pathname,
 			fputs(line, f2);
 	}
 
+	flock(fileno(f), LOCK_UN);
 	fclose(f);
 	fclose(f2);
 	rename(temp_pathname, pathname);
@@ -264,7 +277,7 @@ int add_uuid(const char *line, char *result, size_t len, const char *id,
 	}
 
 	int num = get_uuid_number(line);
-	if (num > MAX_NUM)
+	if (num > UUID_MAX_NUM)
 	{
 		fprintf(stderr,
 				"%s number overflow, please selected another volume key\n", id);
