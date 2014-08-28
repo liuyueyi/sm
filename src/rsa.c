@@ -7,10 +7,7 @@
 
 #include "rsa.h"
 
-const char *RSA_SK = "test.key";
-const char *RSA_PK = "test_pub.key";
-
-char *base64(const char *input, int length)
+char *base64(const char *input, size_t length, char *result, size_t size)
 {
 	BIO * bmem = NULL;
 	BIO * b64 = NULL;
@@ -24,45 +21,38 @@ char *base64(const char *input, int length)
 	BIO_flush(b64);
 	BIO_get_mem_ptr(b64, &bptr);
 
-	char * buff = (char *) malloc(bptr->length + 1);
-	if (NULL == buff)
+	if(bptr->length + 1 > size)
 	{
-		printf("error:base64 error!\n");
-		return NULL ;
+		BIO_free_all(b64);
+		return NULL;
 	}
-	memcpy(buff, bptr->data, bptr->length);
-	buff[bptr->length] = 0;
+	memcpy(result, bptr->data, bptr->length);
+	result[bptr->length] = 0;
 
 	BIO_free_all(b64);
 
-	return buff;
+	return result;
 }
 
-char *debase64(char *input, int length)
+char *debase64(char *input, size_t length, char *result, size_t size)
 {
 	BIO * b64 = NULL;
 	BIO * bmem = NULL;
-	char * buffer = (char *) malloc(length + 1);
-	if (NULL == buffer)
-	{
-		printf("error:debase64 error!\n");
-		return NULL ;
-	}
-	memset(buffer, 0, length);
+	if(length > size)
+		return NULL;
+	memset(result, 0, size);
 
 	b64 = BIO_new(BIO_f_base64());
 	BIO_set_flags(b64, BIO_FLAGS_BASE64_NO_NL);
 	bmem = BIO_new_mem_buf(input, length);
 	bmem = BIO_push(b64, bmem);
-	BIO_read(bmem, buffer, length);
-
+	BIO_read(bmem, result, length);
 	BIO_free_all(bmem);
 
-	return buffer;
+	return result;
 }
 
-char *rsa_encrypt(const char *plain_text, char *result, int size,
-		const char *pk_filename)
+char *rsa_encrypt(const char *plain_text, char *result, size_t size, const char *pk_filename)
 {
 	unsigned char *cipher;
 	int len;
@@ -71,7 +61,7 @@ char *rsa_encrypt(const char *plain_text, char *result, int size,
 
 	if (NULL == (file = fopen(pk_filename, "rb")))
 	{
-		printf("error:open key file error\n");
+		fprintf(stderr, "%s public key file not exist!\n", pk_filename);
 		return NULL ;
 	}
 	if (NULL == (rsa = PEM_read_RSA_PUBKEY(file, NULL, NULL, NULL )))
@@ -99,16 +89,12 @@ char *rsa_encrypt(const char *plain_text, char *result, int size,
 	}
 
 	RSA_free(rsa);
-
-	char *temp = base64((char *) cipher, strlen((char *) cipher));
-	strcpy(result, temp);
+	base64((char *) cipher, strlen((char *) cipher), result, size);
 	free(cipher);
-	free(temp);
 	return result;
 }
 
-char *rsa_decrypt(const char *cipher, char *plain_text, int size,
-		const char *sk_filename)
+char *rsa_decrypt(const char *cipher, char *plain_text, size_t size, const char *sk_filename)
 {
 	FILE *file = NULL;
 	RSA *rsa;
@@ -116,7 +102,7 @@ char *rsa_decrypt(const char *cipher, char *plain_text, int size,
 
 	if (NULL == (file = fopen(sk_filename, "rb")))
 	{
-		printf("error:open key file error\n");
+		fprintf(stderr, "%s private key file not exist!\n", sk_filename);
 		return NULL ;
 	}
 	if ((rsa = PEM_read_RSAPrivateKey(file, NULL, NULL, NULL )) == NULL )
@@ -127,30 +113,29 @@ char *rsa_decrypt(const char *cipher, char *plain_text, int size,
 	fclose(file);
 
 	len = RSA_size(rsa);
-	if (len + 1 > size)
-	{
-		RSA_free(rsa);
-		return NULL ;
-	}
 	memset(plain_text, 0, size);
 
-	char *temp = (char *) debase64(cipher, strlen(cipher));
+	char temp[250];
+	if(NULL == debase64(cipher, strlen(cipher), temp, 250))
+	{
+		RSA_free(rsa);
+		fprintf(stderr, "decrypt error\n");
+		return NULL;
+	}
+
 	if (0
 			> RSA_private_decrypt(len, (unsigned char *) temp,
 					(unsigned char*) plain_text, rsa, RSA_NO_PADDING))
 	{
 		RSA_free(rsa);
-		free(temp);
 		return NULL ;
 	}
 
 	RSA_free(rsa);
-	free(temp);
 	return plain_text;
 }
 
-char *rsa_sign(const char *text, char *signature, int size,
-		const char *sk_filename)
+char *rsa_sign(const char *text, char *signature, size_t size, const char *sk_filename)
 {
 	RSA *rsa;
 	FILE *file;
@@ -159,7 +144,7 @@ char *rsa_sign(const char *text, char *signature, int size,
 
 	if (NULL == (file = fopen(sk_filename, "rb")))
 	{
-		printf("error:open key file error\n");
+		fprintf(stderr, "%s private key file not exist!\n", sk_filename);
 		return NULL ;
 	}
 	if ((rsa = PEM_read_RSAPrivateKey(file, NULL, NULL, NULL )) == NULL )
@@ -177,30 +162,28 @@ char *rsa_sign(const char *text, char *signature, int size,
 
 	unsigned char temp[50];
 	SHA((const unsigned char *) text, strlen(text), temp);
-	if (1 != RSA_sign(NID_sha1, temp, 16, sig, &sig_len, rsa))
+	if (1 != RSA_sign(NID_sha1, temp, strlen((char *)temp), sig, &sig_len, rsa))
 	{
-		printf("error:fail to sign the message!\n");
+		fprintf(stderr, "fail to sign the %s!\n", text);
 		free(sig);
 		RSA_free(rsa);
 		return NULL ;
 	}
-	char *buf = base64((char *) sig, strlen((char *) sig));
-	free(sig);
+
 	RSA_free(rsa);
-	strcpy(signature, buf);
-	free(buf);
+	base64((char *) sig, strlen((char *) sig), signature, size);
+	free(sig);
 	return signature;
 }
 
 int rsa_verify(const char *text, const char *sig, const char *pk_filename)
 {
-	unsigned char *sig_temp;
 	RSA *rsa;
 	FILE *file;
 
 	if (NULL == (file = fopen(pk_filename, "rb")))
 	{
-		printf("error:open key file error\n");
+		fprintf(stderr, "%s public key file not exist!\n", pk_filename);
 		return -1;
 	}
 	if ((rsa = PEM_read_RSA_PUBKEY(file, NULL, NULL, NULL )) == NULL )
@@ -210,12 +193,15 @@ int rsa_verify(const char *text, const char *sig, const char *pk_filename)
 	}
 	fclose(file);
 
-	sig_temp = debase64(sig, strlen((char *) sig));
+	char sig_temp[250];
+	if(NULL == debase64(sig, strlen((char *) sig), sig_temp, 250))
+	{
+		return -1;
+	}
+
 	unsigned char temp[50];
 	SHA((const unsigned char *) text, strlen(text), temp);
-	int ret = RSA_verify(NID_sha1, temp, 16, sig_temp, 128, rsa);
-	free(sig_temp);
+	int ret = RSA_verify(NID_sha1, temp, strlen((char *)temp), (unsigned char *)sig_temp, sizeof(sig_temp), rsa);
 	RSA_free(rsa);
-
 	return (ret == 1) ? 0 : -1;
 }

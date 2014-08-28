@@ -6,6 +6,7 @@
  */
 
 #include <getopt.h>
+#include <time.h>
 #include "config.h"
 
 struct option const long_options[] =
@@ -16,40 +17,50 @@ struct option const long_options[] =
 { "id", optional_argument, NULL, 'i' },
 { "uuid", optional_argument, NULL, 'u' },
 { "plain_key", no_argument, NULL, 'k' },
+{ "config_pathname", required_argument, NULL, 'c' },
+{ "sk_pathname", required_argument, NULL, 'S' },
+{ "pk_pathname", required_argument, NULL, 'P' },
 { "help", no_argument, NULL, 'h' },
 { NULL, 0, NULL, 0 } };
+
+#define CONFIG_FILENAME "key.conf"
+#define SK_FILENAME "test.key"
+#define PK_FILENAME "test_pub.key"
 
 struct kmc_option
 {
 	short mode;
-	short list_mode;
-	short set_mode;
-	short help_mode;
-	short remove_mode;
-	short plain_key_mode;
-	short id_mode;
-	short uuid_mode;
+	short plain_key;
+	bool id;
+	bool uuid;
 
-	char *id;
-	char *uuid;
+	char sk_pathname[200];
+	char pk_pathname[200];
+	char config_pathname[200];
+	char uuid_content[70];
+	char id_content[10];
 };
+
+#define LIST_CMD 1
+#define SET_CMD 2
+#define REMOVE_CMD 3
+#define HELP_CMD 4
 
 void kmc_option_init(struct kmc_option *x)
 {
 	x->mode = 0;
-	x->list_mode = 0;
-	x->set_mode = 0;
-	x->help_mode = 0;
-	x->remove_mode = 0;
-	x->plain_key_mode = 0;
-	x->id_mode = 0;
-	x->uuid_mode = 0;
+	x->plain_key = false;
+	x->id = false;
+	x->uuid = false;
 
-	x->id = NULL;
-	x->uuid = NULL;
+	strcpy(x->id_content, "");
+	strcpy(x->uuid_content, "");
+	strcpy(x->sk_pathname, SK_FILENAME);
+	strcpy(x->pk_pathname, PK_FILENAME);
+	strcpy(x->config_pathname, CONFIG_FILENAME);
 }
 
-void help()
+void do_help()
 {
 	printf(("Usage: kmc [OPTION]... \n"));
 	fputs(("\
@@ -92,6 +103,42 @@ Mandatory arguments to long options are mandatory for short options too.\n\
 			stdout);
 	fputs(
 			("\
+  -c, --config_pathname key file pathname\n\
+                    egg:\n\
+                     delete the volume key relation:\n\
+                      kmc -l -i=10000001 -c key.conf\n\
+"),
+			stdout);
+	fputs(
+			("\
+  -P, --pk_pathname public key pathname\n\
+                    egg:\n\
+                     print the volume key:\n\
+                      kmc -l -i=10000004 -k -P rsa_pub.key\n\
+"),
+			stdout);
+
+	fputs(
+			("\
+  -S, --sk_pathname secrite key pathname\n\
+                    egg:\n\
+                     print the volume key:\n\
+                     kmc -l -i=10000004 -k -S rsa_priv.key\n\
+"),
+			stdout);
+
+	fputs(
+			("\
+  -r, --remove      delete the volume key or volume key relation\n\
+                    egg:\n\
+                     delete the volume key:\n\
+                      kmc -r -i=10000004\n\
+                     delete the volume key relation:\n\
+                      kmc -r -u=550E8400-E29B-11D4-A716-44665544asdf\n\
+"),
+			stdout);
+	fputs(
+			("\
   -i, --id[=ID]     volume key id\n\
   -u, --uuid[=uuid] volume uuid\n\
   -k, --plain_key   get the plan_key\n\
@@ -106,55 +153,79 @@ Exit status:\n\
 			stdout);
 }
 
+inline int show_command_error()
+{
+	fprintf(stderr, "selected one command in -l -r -s\n!");
+	exit(-1);
+}
+
 int decode_switch(int argc, char **argv, struct kmc_option *x)
 {
 	int c;
-	int option_index
-
-	= 0;
 	while (1)
 	{
-		c = getopt_long_only(argc, argv, "lsrkhiu", long_options,
-				&option_index);
-
+		c = getopt_long_only(argc, argv, "lsrkhiuS:P:c:", long_options, NULL );
 		if (c == -1)
 			break;
+
 		switch (c)
 		{
 		case 'l':
-			x->mode += 1;
-			x->list_mode = 1;
+			if (x->mode > 0)
+				show_command_error();
+			x->mode = LIST_CMD;
 			break;
 
 		case 's':
-			x->mode += 1;
-			x->set_mode = 1;
+			if (x->mode > 0)
+				show_command_error();
+			x->mode = SET_CMD;
 			break;
 
 		case 'r':
-			x->mode += 1;
-			x->remove_mode = 1;
-			break;
-
-		case 'k':
-			x->plain_key_mode = 1;
+			if (x->mode > 0)
+				show_command_error();
+			x->mode = REMOVE_CMD;
 			break;
 
 		case 'h':
-			x->mode += 1;
-			x->help_mode = 1;
+			if (x->mode > 0)
+				show_command_error();
+			x->mode = HELP_CMD;
+			break;
+
+		case 'k':
+			x->plain_key = true;
 			break;
 
 		case 'i':
-			x->id_mode = 1;
-			x->id = optarg;
-			//strcpy(x->id, optarg);
+			x->id = true;
+			if (optarg && strlen(optarg) < sizeof(x->id_content))
+				strcpy(x->id_content, optarg);
 			break;
 
 		case 'u':
-			x->uuid_mode = 1;
-			x->uuid = optarg;
-			//strcpy(x->uuid, optarg);
+			x->uuid = true;
+			if (optarg && strlen(optarg) < sizeof(x->uuid_content))
+				strcpy(x->uuid_content, optarg);
+			break;
+
+		case 'c':
+			if (strlen(optarg) < sizeof(x->config_pathname))
+				strcpy(x->config_pathname, optarg);
+			break;
+
+		case 'P':
+			if (*optarg == '=')
+				++optarg;
+			if (strlen(optarg) < sizeof(x->pk_pathname))
+				strcpy(x->pk_pathname, optarg);
+			break;
+		case 'S':
+			if (*optarg == '=')
+				++optarg;
+			if (strlen(optarg) < sizeof(x->sk_pathname))
+				strcpy(x->sk_pathname, optarg);
 			break;
 
 		case '?':
@@ -162,102 +233,112 @@ int decode_switch(int argc, char **argv, struct kmc_option *x)
 
 		default:
 			printf("?? getopt returned character code 0%o ??\n", c);
-			break;
+			exit(-1);
 		}
 	}
 
 	return optind;
 }
 
-int command(const struct kmc_option *x, const struct encrypt_operations *en)
+int do_list(const struct kmc_option *x)
 {
-	if (x->mode != 1)
+	if (x->plain_key)
 	{
+		struct encrypt_operations *en = set_encryption_method("rsa",
+				x->sk_pathname, x->pk_pathname);
+
+		if (x->id && strlen(x->id_content) != 0)
+			return do_list_key(x->config_pathname, x->id_content, en);
+		if (x->uuid && strlen(x->uuid_content) != 0)
+			return do_list_key(x->config_pathname, x->uuid_content, en);
+
+		fprintf(stderr, "input correct id or uuid\n");
 		return -1;
 	}
 
-	if (x->list_mode == 1)
+	if (strlen(x->id_content) != 0)
 	{
-		if (x->id == NULL && x->uuid == NULL )
-		{
-			if (x->plain_key_mode == 1)
-			{
-				return -1;
-			}
-			else
-			{
-				return print_all_id_and_uuid();
-			}
-		}
-		else if (x->id == NULL )
-		{
-			if (x->plain_key_mode == 1)
-			{
-				return print_key_by_uuid(x->uuid, en);
-			}
-			else if (x->id_mode == 1)
-			{
-				return print_id_by_uuid(x->uuid);
-			}
-			else
-			{
-				return print_id_and_uuid_by_id_or_uuid(x->uuid);
-			}
-		}
-		else if (x->uuid == NULL )
-		{
-			if (x->plain_key_mode == 1)
-			{
-				return print_key_by_id(x->id, en);
-			}
-			else if (x->uuid_mode == 1)
-			{
-				return print_uuid_by_id(x->id);
-			}
-			else
-			{
-				return print_id_and_uuid_by_id_or_uuid(x->id);
-			}
-		}
+		if (!x->uuid)
+			return do_list_id_uuid(x->config_pathname, x->id_content);
+		else if (strlen(x->uuid_content) == 0)
+			return do_list_uuid(x->config_pathname, x->id_content);
+	}
+	else if (strlen(x->uuid_content) != 0)
+		return do_list_id(x->config_pathname, x->uuid_content);
+	else
+		return do_list_line(x->config_pathname);
+
+	fprintf(stderr, "invalid command, read more by help\n");
+	return -1;
+}
+
+void rand_temp_pathname(const char *old_pathname, char *pathname, size_t len)
+{
+
+	if (strlen(old_pathname) + 4 >= len)
+	{
+		fprintf(stderr, "%s pathname too long!\n", old_pathname);
+		exit(-1);
 	}
 
-	if (x->set_mode == 1)
-	{
-		if (x->id == NULL || x->uuid == NULL || x->plain_key_mode == 1)
-		{
-			return -1;
-		}
-		else
-		{
-			return update_uuid(x->id, x->uuid);
-		}
-	}
+	srand((int) time(0));
+	char buf[5];
+	sprintf(buf, "%d", rand() % 10000);
+	strcpy(pathname, old_pathname);
+	strcat(pathname, buf);
+	printf("pathname = %s\n", pathname);
+}
 
-	if (x->remove_mode == 1)
-	{
-		if ((x->id_mode == 1 && x->uuid_mode == 1)
-				|| (x->id_mode == 0 && x->uuid_mode == 0))
-		{
-			return -1;
-		}
+int do_set(const struct kmc_option *x)
+{
+	char temp_pathname[200];
+	rand_temp_pathname(x->config_pathname, temp_pathname, 200);
 
-		if (x->id != NULL )
-		{
-			return remove_id(x->id);
-		}
-		else if (x->uuid != NULL )
-		{
-			return remove_uuid(x->uuid);
-		}
-		else
-		{
-			return -1;
-		}
-	}
+	if (strlen(x->id_content) != 0 && strlen(x->uuid_content) != 0)
+		return do_update_uuid(x->config_pathname, temp_pathname, x->id_content,
+				x->uuid_content);
 
-	if (x->help_mode == 1)
+	fprintf(stderr, "invalid command, read more by help\n");
+	return -1;
+}
+
+int do_remove(const struct kmc_option *x)
+{
+	char temp_pathname[200];
+	rand_temp_pathname(x->config_pathname, temp_pathname, 200);
+
+	if (strlen(x->id_content) != 0 && !x->uuid)
+		return do_remove_id(x->config_pathname, temp_pathname, x->id_content);
+
+	if (!x->id && strlen(x->uuid_content) != 0)
+		return do_remove_uuid(x->config_pathname, temp_pathname,
+				x->uuid_content);
+
+	fprintf(stderr, "invalid command, read more by help\n");
+	return -1;
+}
+
+int command(const struct kmc_option *x)
+{
+	set_encryption_method("rsa", x->sk_pathname, x->pk_pathname);
+
+	switch (x->mode)
 	{
-		help();
+	case LIST_CMD:
+		do_list(x);
+		break;
+	case SET_CMD:
+		do_set(x);
+		break;
+	case REMOVE_CMD:
+		do_remove(x);
+		break;
+	case HELP_CMD:
+		do_help();
+		break;
+	default:
+		fprintf(stderr, "command error\n");
+		exit(-1);
 	}
 
 	return 0;
@@ -266,15 +347,13 @@ int command(const struct kmc_option *x, const struct encrypt_operations *en)
 int main(int argc, char ** argv)
 {
 	int status;
-	struct encrypt_operations *en = set_encryption_method("rsa", "test.key", "test_pub.key");
 	struct kmc_option *x = (struct kmc_option *) malloc(
 			sizeof(struct kmc_option));
 	if (x != NULL )
 	{
 		kmc_option_init(x);
 		decode_switch(argc, argv, x);
-		status = command(x, en);
-		free(en);
+		status = command(x);
 		free(x);
 		return status;
 	}

@@ -12,38 +12,68 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
+#include <stdbool.h>
+#include <limits.h>
 #include "encrypt.h"
 
-int is_comment(const char *content);
+const char *get_column(char *line, int col);
 
-char *get_first_column(const char *line);
+bool is_valid_column(const char *line, size_t len, const char *priv);
 
-char *get_second_column(const char *line);
+int do_getline(const char *pathname,
+		int (*proc_line)(const char *line, size_t len, const void *priv,
+				const void *en), const void *priv, const void *en);
 
-char *get_third_column(const char *line);
+int do_putline(const char *pathname, const char *temp_pathname,
+		int (*proc_line)(const char *line, char *result, size_t len,
+				const char *id, const char *uuid), const char *id,
+		const char *uuid);
 
-int print_a_by_b(const char *key, const int type, const struct encrypt_operations *en);
+int get_uuid_number(const char *line);
 
-int print_uuid_by_id(const char *id);
+int print_line(const char *line, size_t len, const void *priv, const void *en);
 
-int print_id_by_uuid(const char *uuid);
+int print_id_uuid(const char *line, size_t len, const void *priv,
+		const void *en);
 
-int print_key_by_id(const char *id, const struct encrypt_operations *en);
+int print_id(const char *line, size_t len, const void *priv, const void *en);
 
-int print_key_by_uuid(const char *uuid, const struct encrypt_operations *en);
+int print_key(const char *line, size_t len, const void *priv,
+		const struct encrypt_operations *en);
 
-int print_id_and_uuid_by_id_or_uuid(const char *key);
+int print_uuid(const char *line, size_t len, const void *priv, const void *en);
 
-int print_all_id_and_uuid();
+int remove_uuid(const char *line, char *result, size_t len, const char *id,
+		const char *uuid);
 
-char *remove_sub_string(const char *line, const char *uuid);
+int add_uuid(const char *line, char *result, size_t len, const char *id,
+		const char *uuid);
 
-int remove_id(const char *id);
+int remove_id(const char *line, char *result, size_t len, const char *id,
+		const char *uuid);
 
-int remove_uuid(const char *uuid);
+int update_uuid(const char *line, char *result, size_t len, const char *id,
+		const char *uuid);
 
-int judge_id(const char *id);
+int do_list_line(const char *pathname);
 
-int update_uuid(const char *id, const char *uuid);
+int do_list_id(const char *pathname, const char *priv);
+
+int do_list_key(const char *pathname, const char *priv,
+		struct encrypt_operations *en);
+
+int do_list_uuid(const char *pathname, const char *priv);
+
+int do_list_id_uuid(const char *pathname, const char *priv);
+
+int do_remove_uuid(const char *pathname, const char *temp_pathname,
+		const char *uuid);
+
+int do_remove_id(const char *pathname, const char *temp_pathname,
+		const char *id);
+
+int do_update_uuid(const char *pathname, const char *temp_pathname,
+		const char *id, const char *uuid);
 
 #endif /* CONFIG_H_ */

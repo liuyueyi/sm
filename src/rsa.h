@@ -21,16 +21,16 @@
 #include <openssl/pem.h>
 #include <openssl/err.h>
 
-char *base64(const char *a, int length);
+char *base64(const char *a, size_t length, char *result, size_t size);
 
-char *debase64(char *a, int length);
+char *debase64(char *a, size_t length, char *result, size_t size);
 
-char *rsa_encrypt(const char *plain_text, char *result, int size, const char *pk_filename);
+char *rsa_encrypt(const char *plain_text, char *result, size_t size, const char *pk_filename);
 
-char *rsa_decrypt(const char *cipher, char *result, int size, const char *sk_filename);
+char *rsa_decrypt(const char *cipher, char *result, size_t size, const char *sk_filename);
 
-char *rsa_sign(const char *text, char *signature, int size, const char *sk_filename);
+char *rsa_sign(const char *text, char *signature, size_t size, const char *sk_filename);
 
-int rsa_verify(const char *text, const char *sig, const char *pk_filename);
+int rsa_verify(const char *text, const char *signature, const char *pk_filename);
 
 #endif

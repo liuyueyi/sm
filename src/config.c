@@ -7,81 +7,138 @@
  */
 #include "config.h"
 
-const int MAX_SIZE = 1024;
 const int MAX_NUM = 10;
-const char *config_filename = "key.conf";
-const char *temp_config_filename = "temp_key.conf";
-const char *open_mode[] =
-{ "rt+", "wt+" };
 
-int is_comment(const char *content)
-{
-	int i = 0;
-	int len = strlen(content);
-	while (i < len && isspace(content[i]) != 0)
-	{
-		++i;
-	}
-	if (i >= len || content[i] == '#') // empty line or comment line
-		return 0;
-	else
-		return 1;
-}
-
-char *get_first_column(const char *line)
+#define string_space " \n\t\f\r\v"
+const char *get_column(char *line, int col)
 {
 	char *ptr = NULL;
-	char content[MAX_SIZE];
-	strcpy(content, line);
-	ptr = strtok(content, " \n\t\f\r\v");
-	return ptr;
-}
+	ptr = strtok(line, string_space);
+	col--;
 
-char *get_second_column(const char *line)
-{
-	char *ptr = NULL;
-	char content[MAX_SIZE];
-	strcpy(content, line);
-	ptr = strtok(content, " \n\t\f\r\v");
-	if (NULL != ptr)
-	{
-		ptr = strtok(NULL, " \n\t\f\r\v");
-	}
+	while (ptr && col--)
+		ptr = strtok(NULL, string_space);
 
 	return ptr;
 }
 
-char *get_third_column(const char *line)
+bool is_valid_column(const char *line, size_t len, const char *priv)
 {
 	char *ptr = NULL;
-	char content[MAX_SIZE];
-	strcpy(content, line);
-	ptr = strtok(content, " \n\t\f\r\v");
-	if (NULL != ptr)
+	ptr = strstr(line, priv);
+	while (ptr)
 	{
-		ptr = strtok(NULL, " \n\t\f\r\v");
-		if (NULL != ptr)
+		if (strlen(ptr) != strlen(line)
+				&& !(isspace(*(ptr-1)) || ',' == *(ptr - 1)))
+			ptr = strstr(ptr + strlen(priv), priv);
+		else if (strlen(ptr) == strlen(priv) || isspace(ptr[strlen(priv)])
+				|| ',' == ptr[strlen(priv)])
+			return true;
+		else
+			ptr = strstr(ptr + strlen(priv), priv);
+	}
+	return false;
+}
+
+int do_getline(const char *pathname,
+		int (*proc_line)(const char *line, size_t len, const void *priv,
+				const void *en), const void *priv, const void *en)
+{
+	size_t n;
+	int ret = 0;
+	char line[LINE_MAX];
+
+	//int lockf = open("/tmp/xxx.lock", O_CREAT | O_EXCL);
+	FILE *f = fopen(pathname, "r");
+
+	if (NULL == f)
+	{
+		fprintf(stderr, "could not open conf %s\n", pathname);
+		return -ENOENT;
+	}
+
+	while (fgets(line, LINE_MAX, f))
+	{
+		char *beg = line;
+
+		while (*beg && isspace(*beg))
+			beg++;
+		if (*beg == '#' || *beg == '\0')
+			continue;
+
+		n = strlen(beg);
+		while (n && (line[n - 1] == '\r' || line[n - 1] == '\n'))
+			--n;
+		if (!n)
+			continue;
+
+		ret = proc_line(beg, n, priv, en);
+		if (ret)
+			break;
+	}
+
+	fclose(f);
+	return ret;
+}
+
+int do_putline(const char *pathname, const char *temp_pathname,
+		int (*proc_line)(const char *line, char *result, size_t len,
+				const char *id, const char *uuid), const char *id,
+		const char *uuid)
+{
+	char line[LINE_MAX];
+
+	//int lockf = open("/tmp/xxx.lock", O_CREAT | O_EXCL);
+	FILE *f = fopen(pathname, "r");
+	FILE *f2 = fopen(temp_pathname, "w");
+
+	if (NULL == f || NULL == f2)
+	{
+		fprintf(stderr, "could not open conf %s\n", pathname);
+		return -ENOENT;
+	}
+
+	while (fgets(line, LINE_MAX, f))
+	{
+		char beg[LINE_MAX];
+		int i = 0;
+		int line_len = strlen(line);
+		while (i < line_len && isspace(line[i]))
+			++i;
+		if (i == line_len || line[i] == '#')
 		{
-			ptr = strtok(NULL, " \n\t\f\r\v");
+			fputs(line, f2);
+			continue;
 		}
+
+		if (proc_line(line, beg, LINE_MAX, id, uuid))
+			fputs(beg, f2);
+		else
+			fputs(line, f2);
 	}
 
-	return ptr;
+	fclose(f);
+	fclose(f2);
+	rename(temp_pathname, pathname);
+	return 0;
 }
 
+#define COL_ID		1
+#define COL_KEY		2
+#define COL_UUID	3
 int get_uuid_number(const char *line)
 {
 	char *ptr = NULL;
 	int num = 0;
 
-	ptr = get_third_column(line);
+	char temp[LINE_MAX];
+	strcpy(temp, line);
+	ptr = get_column(temp, COL_UUID);
 	if (NULL == ptr)
-	{
 		return 0;
-	}
 
 	ptr = strtok(ptr, ","); //split uuid
-	while (ptr != NULL )
+	while (ptr)
 	{
 		num++;
 		ptr = strtok(NULL, ",");
@@ -89,310 +146,210 @@ int get_uuid_number(const char *line)
 	return num;
 }
 
-int print_a_by_b(const char *key, const int type,
+int print_line(const char *line, size_t len, const void *priv, const void *en)
+{
+	char temp[LINE_MAX];
+	strcpy(temp, line);
+	printf("%s ", get_column(temp, COL_ID));
+	strcpy(temp, line);
+	const char *uuid = get_column(temp, COL_UUID);
+	if (uuid)
+		printf("%s\n", uuid);
+	else
+		printf("\n");
+	return 0;
+}
+
+int print_id_uuid(const char *line, size_t len, const void *priv,
+		const void *en)
+{
+	if (!is_valid_column(line, len, (const char *) priv))
+		return 0;
+
+	char temp[LINE_MAX];
+	strcpy(temp, line);
+	printf("%s ", get_column(temp, COL_ID));
+	strcpy(temp, line);
+	const char *uuid = get_column(temp, COL_UUID);
+	if (uuid)
+		printf("%s\n", uuid);
+	else
+		printf("\n");
+	return 1;
+}
+
+int print_id(const char *line, size_t len, const void *priv, const void *en)
+{
+	if (!is_valid_column(line, len, (const char *) priv))
+		return 0;
+
+	char temp[LINE_MAX];
+	strcpy(temp, line);
+	printf("%s\n", get_column(temp, COL_ID));
+	return 1;
+}
+
+int print_key(const char *line, size_t len, const void *priv,
 		const struct encrypt_operations *en)
 {
-	char content[MAX_SIZE];
-	char *ptr = NULL;
-	FILE *f = fopen(config_filename, open_mode[0]);
-	if (NULL == f)
+	if (!is_valid_column(line, len, priv))
+		return 0;
+
+	char temp[LINE_MAX];
+	strcpy(temp, line);
+	const char *key = NULL;
+	char result[200];
+	if (!en || !(key = get_column(temp, COL_KEY))
+			|| !((*(en->decrypt))(key, result, 200, en->sk_filename)))
 	{
-		printf("error: fail to open the configure file!\n");
-		return -1;
+		fprintf(stderr, "fail to decrypt the volume key\n");
+		exit(-1);
 	}
 
-	while (!feof(f))
-	{
-		if (NULL == fgets(content, MAX_SIZE, f))
-			continue;
-
-		content[strlen(content) - 2] = '\0'; // remove the newline character
-		if (0 != is_comment(content) && strstr(content, key) != NULL )
-		{
-			switch (type)
-			{
-			case 0:
-				ptr = get_first_column(content);
-				if (NULL != ptr)
-					printf("%s\n", ptr);
-				break;
-			case 1:
-				if (NULL == en)
-				{
-					printf("error:key error!\n");
-					fclose(f);
-					return -1;
-				}
-
-				ptr = get_second_column(content); // print key
-				if (NULL != ptr)
-				{
-					char *temp = NULL;
-					char result[200];
-					char tt[250];
-					strcpy(tt, ptr);
-					if (NULL
-							!= (temp = (*(en->decrypt))(tt, result, 200,
-									en->sk_filename)))
-					{
-						printf("%s\n", result);
-					}
-					else
-					{
-						printf("error:can not get key!\n");
-					}
-				}
-				break;
-			case 2:
-				ptr = get_third_column(content);
-				if (NULL != ptr)
-					printf("%s\n", ptr);
-				break;
-			case 3:
-				ptr = get_first_column(content);
-				if (NULL != ptr)
-					printf("%s ", ptr);
-
-				ptr = get_third_column(content);
-				if (NULL != ptr)
-					printf("%s", ptr);
-				printf("\n");
-				break;
-			}
-		}
-	}
-
-	return fclose(f);
+	printf("%s\n", result);
+	return 1;
 }
 
-int print_uuid_by_id(const char *id)
+int print_uuid(const char *line, size_t len, const void *priv, const void *ptr)
 {
-	return print_a_by_b(id, 2, NULL );
+	if (!is_valid_column(line, len, (const char *) priv))
+		return 0;
+
+	char temp[LINE_MAX];
+	strcpy(temp, line);
+	const char *uuid = get_column(temp, COL_UUID);
+	if (uuid)
+		printf("%s\n", uuid);
+	else
+		printf("\n");
+	return 1;
 }
 
-int print_id_by_uuid(const char *uuid)
-{
-	return print_a_by_b(uuid, 0, NULL );
-}
-
-int print_key_by_id(const char *id, const struct encrypt_operations *en)
-{
-	return print_a_by_b(id, 1, en);
-}
-
-int print_key_by_uuid(const char *uuid, const struct encrypt_operations *en)
-{
-	return print_a_by_b(uuid, 1, en);
-}
-
-int print_id_and_uuid_by_id_or_uuid(const char *key)
-{
-	return print_a_by_b(key, 3, NULL );
-}
-
-int print_all_id_and_uuid()
-{
-	return print_a_by_b(" ", 3, NULL );
-}
-
-char *remove_sub_string(const char *line, const char *uuid)
+int remove_uuid(const char *line, char *result, size_t len, const char *id,
+		const char *uuid)
 {
 	char *ptr = strstr(line, uuid);
 	int length = 0;
-	char *ans = NULL;
 	int tag = 0;
-	if (ptr != NULL )
-	{
-		ans = (char *) malloc(sizeof(char) * (strlen(line) - strlen(uuid) + 1));
-		if (ans == NULL )
-		{
-			return NULL ;
-		}
+	if (ptr == NULL )
+		return 0;
 
-		length = ptr - line;
-		if (line[length - 1] == ',')
-		{
-			tag = 1;
-			length -= 1;
-		}
-		strncpy(ans, line, length);
-		if (ptr[strlen(uuid)] == ',' && tag == 0) // only remove one ','
-			ptr++;
-		strcat(ans, ptr + strlen(uuid));
-		return ans;
+	int i = 0;
+	while (i < strlen(line))
+	{
+		result[i++] = 0;
 	}
 
-	return NULL ;
+	length = ptr - line;
+	if (line[length - 1] == ',')
+	{
+		tag = 1;
+		length -= 1;
+	}
+
+	strncpy(result, line, length);
+	if (ptr[strlen(uuid)] == ',' && tag == 0) // only remove one ','
+		ptr++;
+	strcat(result, ptr + strlen(uuid));
+	return 1;
 }
 
-int remove_uuid(const char *uuid)
+int add_uuid(const char *line, char *result, size_t len, const char *id,
+		const char *uuid)
 {
-	FILE *f = NULL;
-	FILE *f2 = NULL;
-	char line[MAX_SIZE];
-	char *result;
-
-	if (NULL == (f = fopen(config_filename, open_mode[0])) || NULL == (f2 =
-			fopen(temp_config_filename, open_mode[1])))
+	int line_len = strlen(line);
+	if (!is_valid_column(line, line_len, id) || line_len + strlen(uuid) >= len)
 	{
-		printf("error: fail to open the configure file!\n");
-		return -1;
+		return 0;
 	}
 
-	while (!feof(f))
+	int num = get_uuid_number(line);
+	if (num > MAX_NUM)
 	{
-		if (NULL != fgets(line, MAX_SIZE, f))
-		{
-			if ((result = remove_sub_string(line, uuid)) != NULL )
-			{
-				//delete old uuid
-				fputs(result, f2);
-				free(result);
-				continue;
-			}
-			else
-			{
-				fputs(line, f2);
-			}
-		}
+		fprintf(stderr,
+				"%s number overflow, please selected another volume key\n", id);
+		exit(-1);
 	}
-	fclose(f);
-	fclose(f2);
 
-	return rename(temp_config_filename, config_filename);
+	while (line[line_len - 1] == '\r' || line[line_len - 1] == '\n')
+		line_len--;
+	strncpy(result, line, line_len);
+	if (strlen(result) > line_len)
+		result[line_len] = '\0';
+	if (num > 0)
+		strcat(result, ",");
+	else if (!isspace(line[line_len- 1]))
+		strcat(result, " ");
+	strcat(result, uuid);
+	strcat(result, "\n");
+	return 1;
 }
 
-int remove_id(const char *id)
+int remove_id(const char *line, char *result, size_t len, const char *id,
+		const char *uuid)
 {
-	FILE *f = NULL;
-	FILE *f2 = NULL;
-	char line[MAX_SIZE];
-
-	if (NULL == (f = fopen(config_filename, open_mode[0])) || NULL == (f2 =
-			fopen(temp_config_filename, open_mode[1])))
+	if (is_valid_column(line, strlen(line), id))
 	{
-		printf("error: fail to open the configure file!\n");
-		return -1;
+		strcpy(result, "");
+		return 1;
 	}
-
-	while (!feof(f))
-	{
-		if (NULL != fgets(line, MAX_SIZE, f))
-		{
-			if (NULL == strstr(line, id))
-			{
-				fputs(line, f2);
-			}
-		}
-	}
-	fclose(f);
-	fclose(f2);
-	return rename(temp_config_filename, config_filename);
+	else
+		return 0;
 }
 
-/*
- * judge if id is in the file
- */
-int judge_id(const char *id)
+int update_uuid(const char *line, char *result, size_t len, const char *id,
+		const char *uuid)
 {
-	FILE *f = NULL;
-	char line[MAX_SIZE];
-	if (NULL == (f = fopen(config_filename, open_mode[0])))
-	{
-		printf("error: fail to open the configure file!\n");
-		return -1;
-	}
+	if (remove_uuid(line, result, len, NULL, uuid))
+		return 1;
 
-	while (!feof(f))
-	{
-		if (NULL != fgets(line, MAX_SIZE, f))
-		{
-			if (NULL != strstr(line, id))
-			{
-				fclose(f);
-				return 0;
-			}
-		}
-	}
-
-	fclose(f);
-	return 1; // no this id
+	return add_uuid(line, result, len, id, uuid);
 }
 
-int update_uuid(const char *id, const char *uuid)
+int do_list_line(const char *pathname)
 {
-	FILE *f = NULL;
-	FILE *f2 = NULL;
-	char line[MAX_SIZE];
-	char *result;
-
-	switch (judge_id(id))
-	{
-	case 1:
-		printf("error: select invalid volume key\n");
-		return -1;
-	case -1:
-		printf("error: fail to open the configure file!\n");
-		return -1;
-		break;
-	default:
-		break;
-	}
-
-	if (NULL == (f = fopen(config_filename, open_mode[0])) || NULL == (f2 =
-			fopen(temp_config_filename, open_mode[1])))
-	{
-		printf("error: fail to open the configure file!\n");
-		return -1;
-	}
-
-	while (!feof(f))
-	{
-		if (NULL != fgets(line, MAX_SIZE, f))
-		{
-
-			if ((result = remove_sub_string(line, uuid)) != NULL )
-			{
-				//delete old uuid
-				fputs(result, f2);
-				free(result);
-				continue;
-			}
-
-			if (NULL != strstr(line, id))
-			{
-				//insert uuid
-				char *ptr = strstr(line, "\r\n");
-				if (NULL != ptr)
-					line[ptr - line] = 0;
-
-				int number = get_uuid_number(line);
-				if (number >= 10)
-				{
-					printf(
-							"error:number exceed, please select another volume key\n");
-					return -1;
-				}
-				if (number >= 0)
-				{
-					if (number > 0)
-						strcat(line, ",");
-					else if (isspace(line[strlen(line) - 1]) == 0)
-						strcat(line, " ");
-					strcat(line, uuid);
-					strcat(line, "\r\n");
-					fputs(line, f2);
-				}
-			}
-			else
-			{
-				fputs(line, f2);
-			}
-		}
-	}
-	fclose(f);
-	fclose(f2);
-
-	return rename(temp_config_filename, config_filename);
+	return do_getline(pathname, print_line, NULL, NULL );
 }
 
+int do_list_id(const char *pathname, const char *priv)
+{
+	return do_getline(pathname, print_id, priv, NULL );
+}
+
+int do_list_key(const char *pathname, const char *priv,
+		struct encrypt_operations *en)
+{
+	return do_getline(pathname, print_key, priv, en);
+}
+
+int do_list_uuid(const char *pathname, const char *priv)
+{
+	return do_getline(pathname, print_uuid, priv, NULL );
+}
+
+int do_list_id_uuid(const char *pathname, const char *priv)
+{
+	return do_getline(pathname, print_id_uuid, priv, NULL );
+}
+
+int do_remove_uuid(const char *pathname, const char *temp_pathname,
+		const char *uuid)
+{
+	return do_putline(pathname, temp_pathname, remove_uuid, NULL, uuid);
+}
+
+int do_remove_id(const char *pathname, const char *temp_pathname,
+		const char *id)
+{
+	return do_putline(pathname, temp_pathname, remove_id, id, NULL );
+}
+
+int do_update_uuid(const char *pathname, const char *temp_pathname,
+		const char *id, const char *uuid)
+{
+	if (do_getline(pathname, is_valid_column, id, NULL ))
+		return do_putline(pathname, temp_pathname, update_uuid, id, uuid);
+
+	fprintf(stderr, "%s invalid volume id\n", id);
+	exit(0);
+}
