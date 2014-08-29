@@ -1,0 +1,7 @@
+!.gitignore
+*~
+*.o
+kmd.pid
+temp.d
+kmd
+client

@@ -6,4 +6,4 @@ kmc : $(OBJS)
 
 .PHONY: clean	
 clean:
-	-rm kmc $(OBJS) *.*~
+	-rm kmc $(OBJS) *~

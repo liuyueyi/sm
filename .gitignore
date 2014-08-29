@@ -1,0 +1,11 @@
+!.gitignore
+main/*~
+main/*.o
+main/kmc
+
+server/*~
+server/*.o
+server/kmd.pid
+server/temp.d
+server/kmd
+server/client
