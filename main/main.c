@@ -24,8 +24,8 @@ struct option const long_options[] =
 { NULL, 0, NULL, 0 } };
 
 #define CONFIG_FILENAME "key.conf"
-#define SK_FILENAME "test.key"
-#define PK_FILENAME "test_pub.key"
+#define SK_FILENAME "rsa_priv.key"
+#define PK_FILENAME "rsa_pub.key"
 
 struct kmc_option
 {
@@ -246,6 +246,11 @@ int do_list(const struct kmc_option *x)
 	{
 		struct encrypt_operations *en = set_encryption_method("rsa",
 				x->sk_pathname, x->pk_pathname);
+		if(en == NULL)
+		{
+			fprintf(stderr, "key error\n");
+			exit(1);
+		}
 
 		if (x->id && strlen(x->id_content) != 0)
 			return do_list_key(x->config_pathname, x->id_content, en);
