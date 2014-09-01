@@ -291,7 +291,8 @@ void rand_temp_pathname(const char *old_pathname, char *pathname, size_t len)
 	sprintf(buf, "%d", rand() % 10000);
 	strcpy(pathname, old_pathname);
 	strcat(pathname, buf);
-	printf("pathname = %s\n", pathname);
+	if(access(pathname, "r") == 0) // if temp file exist, generate another temp file pathname	
+		rand_temp_pathname(old_pathname, pathname, len);
 }
 
 int do_set(const struct kmc_option *x)
