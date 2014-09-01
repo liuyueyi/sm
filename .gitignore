@@ -1,4 +1,5 @@
 !.gitignore
+.gitignore~
 main/*~
 main/*.o
 main/kmc
@@ -6,6 +7,6 @@ main/kmc
 server/*~
 server/*.o
 server/kmd.pid
-server/temp.d
+server/temp*
 server/kmd
 server/client

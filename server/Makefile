@@ -6,4 +6,4 @@ kmd : $(OBJS)
 
 .PHONY: clean	
 clean:
-	-rm kmd $(OBJS) *~
+	-rm kmd $(OBJS) *~ temp*
