@@ -19,12 +19,6 @@
 #include <time.h>
 #include <limits.h>
 
-
-#define CONFIG_FILENAME "key.conf"
-#define SK_FILENAME "test.key"
-#define PK_FILENAME "test_pub.key"
-#define DEFAULT_PORT 10033
-
 struct kmd_option
 {
 	uint16_t port;
@@ -33,9 +27,10 @@ struct kmd_option
 	char sk_pathname[PATH_MAX];
 	char pk_pathname[PATH_MAX];
 	char config_pathname[PATH_MAX];
+	char temp_pathname[PATH_MAX];
 };
 
 
-void init_server(const struct kmd_option *x);
+void init_server();
 
 #endif /* SERVER_H_ */

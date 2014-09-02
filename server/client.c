@@ -16,7 +16,7 @@
 #include <unistd.h>
 #include <limits.h>
 
-#define filename "file.d"
+#define filename "rsa_key.conf"
 #define temp_pathname "temp2.d"
 
 void cls_receive(int sockfd)
@@ -46,16 +46,18 @@ void cls_send(int sockfd)
 	FILE *f = NULL;
 	if((f = fopen(filename, "r")) == NULL)
 	{
-		fprintf(stderr, "%s file error\n", filename);
+		fprintf(stderr, "%s file not exist!\n", filename);
 		close(sockfd);
 		exit(1);
 	}
 	
 	char buf[LINE_MAX];
+	int sum = 0;
 	while(fgets(buf, LINE_MAX, f))
-	{
-		send(sockfd, buf, strlen(buf), 0);
-	}
+		sum +=send(sockfd, buf, strlen(buf), 0);
+	
+	printf("send %d\n", sum);
+
 	fclose(f);
 }
 
@@ -72,9 +74,6 @@ int main()
 		exit(1);
 	}
 	
-	// printf("input port...\n");
-	//scanf("%d", &port);
-	
 	bzero(&server_addr, sizeof(server_addr));
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(port);
@@ -87,7 +86,7 @@ int main()
 	}
 	
 	int choose = -1;
-	printf("receive 0, send 1\n");
+	printf("send to server 0, receive from server 1\n");
 	do{
 		scanf("%d", &choose);
 	}while(choose != 0 && choose != 1);
@@ -96,7 +95,6 @@ int main()
 	sprintf(com, "%d", choose);
 	send(sockfd, com, strlen(com), 0);
 	
-		
 	switch(choose)
 	{
 		case 0:

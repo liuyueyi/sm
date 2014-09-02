@@ -12,6 +12,12 @@ struct option const long_options[] =
 { "help", no_argument, NULL, 'h' },
 { NULL, 0, NULL, 0 } };
 
+
+#define CONFIG_FILENAME "rsa_key.conf"
+#define TEMP_FILENAME "rsa_key.conf.tm"
+#define SK_FILENAME "rsa_priv.key"
+#define PK_FILENAME "rsa_pub.key"
+#define DEFAULT_PORT 10033
 void kmd_option_init(struct kmd_option *x)
 {
 	x->port = DEFAULT_PORT;
@@ -19,8 +25,70 @@ void kmd_option_init(struct kmd_option *x)
 	strcpy(x->sk_pathname, SK_FILENAME);
 	strcpy(x->pk_pathname, PK_FILENAME);
 	strcpy(x->config_pathname, CONFIG_FILENAME);
+	strcpy(x->temp_pathname, TEMP_FILENAME);
 }
 
+
+void do_help()
+{
+	printf(("Usage: kmd [OPTION]... \n"));
+	fputs(("\
+key management storage agent.\n\
+\n\
+"),
+			stdout);
+	fputs(
+			("\
+Mandatory arguments to long options are mandatory for short options too.\n\
+"),
+			stdout);
+	fputs(
+			("\
+  -i, --ip=x.x.x.x      limit the connect ip .\n\
+                        egg:\n\
+                          kmd -i 192.168.0.1 \n\
+"),
+			stdout);
+	fputs(
+			("\
+  -p, --port=10033      set the bind port \n\
+                        egg:\n\
+                          kmd -p 10030\n\
+"),
+			stdout);
+	fputs(
+			("\
+  -c, --config_pathname key file pathname\n\
+                        egg:\n\
+                          set the volume key pathname:\n\
+                          kmd -c key.conf\n\
+"),
+			stdout);
+	fputs(
+			("\
+  -P, --pk_pathname     public key pathname\n\
+                        egg:\n\
+                          kmd -P rsa_pub.key\n\
+"),
+			stdout);
+
+	fputs(
+			("\
+  -S, --sk_pathname     secret key pathname\n\
+                        egg:\n\
+                          kmd -S rsa_priv.key\n\
+"),
+			stdout);
+
+	fputs(("\n\
+Exit status:\n\
+   0  if OK,\n\
+  -1  if error\n\
+  \n\
+"),
+			stdout);
+	exit(0);
+}
 
 void decode_switch(int argc, char **argv, struct kmd_option *x)
 {
@@ -50,8 +118,12 @@ void decode_switch(int argc, char **argv, struct kmd_option *x)
 		case 'c':
 			if (*optarg == '=')
 				++optarg;
-			if (strlen(optarg) < PATH_MAX)
+			if (strlen(optarg) < PATH_MAX - 3)
+			{
 				strcpy(x->config_pathname, optarg);
+				strcpy(x->temp_pathname, optarg);
+				strcat(x->temp_pathname, ".tm");	
+			}
 			break;
 
 		case 'P':
@@ -68,7 +140,7 @@ void decode_switch(int argc, char **argv, struct kmd_option *x)
 			break;
 
 		case 'h':
-			// help();
+			do_help();
 			break;
 		case '?':
 			break;

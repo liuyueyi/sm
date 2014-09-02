@@ -1,11 +1,13 @@
 !.gitignore
 .gitignore~
 main/*~
+main/.*
 main/*.o
 main/test.*
 main/kmc
- 
+
 server/*~
+server/.*
 server/*.o
 server/kmd.pid
 server/temp*
