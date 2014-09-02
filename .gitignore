@@ -2,6 +2,7 @@
 .gitignore~
 main/*~
 main/*.o
+main/test.*
 main/kmc
  
 server/*~

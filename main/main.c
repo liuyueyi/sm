@@ -7,6 +7,7 @@
 
 #include <getopt.h>
 #include <time.h>
+#include <unistd.h>
 #include "config.h"
 
 struct option const long_options[] =
@@ -23,7 +24,7 @@ struct option const long_options[] =
 { "help", no_argument, NULL, 'h' },
 { NULL, 0, NULL, 0 } };
 
-#define CONFIG_FILENAME "key.conf"
+#define CONFIG_FILENAME "rsa_key.conf"
 #define SK_FILENAME "rsa_priv.key"
 #define PK_FILENAME "rsa_pub.key"
 
@@ -75,66 +76,67 @@ Mandatory arguments to long options are mandatory for short options too.\n\
 			stdout);
 	fputs(
 			("\
-  -l, --list        list the information of the volume .\n\
-                    egg:\n\
-                      kmc -l \n\
-                      kmc -l -i=10000004 -u \n\
-                      kmc -l -u=550E8400-E29B-11D4-A716-44665544asdf \n\
-                      kmc -l -i=10000004 -k\n\
-                      kmc -l -u=550E8400-E29B-11D4-A716-44665544asdf -k \n\
+  -l, --list            list the information of the volume .\n\
+                        egg:\n\
+                          kmc -l \n\
+                          kmc -l -i=10000004 -u \n\
+                          kmc -l -u=550E8400-E29B-11D4-A716-44665544asdf \n\
+                          kmc -l -i=10000004 -k\n\
+                          kmc -l -u=550E8400-E29B-11D4-A716-44665544asdf -k \n\
 "),
 			stdout);
 	fputs(
 			("\
-  -s, --set         set the volume key for the volume ~\n\
-                    egg:\n\
-                      kmc -s -i=10000004 -u=550E8400-E29B-11D4-A716-44665544asdf\n\
+  -s, --set             set the volume key for the volume ~\n\
+                        egg:\n\
+                          kmc -s -i=10000004 -u=550E8400-E29B-11D4-A716-44665544asdf\n\
 "),
 			stdout);
 	fputs(
 			("\
-  -r, --remove      delete the volume key or volume key relation\n\
-                    egg:\n\
-                     delete the volume key:\n\
-                      kmc -r -i=10000004\n\
-                     delete the volume key relation:\n\
-                      kmc -r -u=550E8400-E29B-11D4-A716-44665544asdf\n\
+  -r, --remove          delete the volume key or volume key relation\n\
+                        egg:\n\
+                         delete the volume key:\n\
+                          kmc -r -i=10000004\n\
+                         delete the volume key relation:\n\
+                          kmc -r -u=550E8400-E29B-11D4-A716-44665544asdf\n\
 "),
 			stdout);
 	fputs(
 			("\
   -c, --config_pathname key file pathname\n\
-                    egg:\n\
-                     delete the volume key relation:\n\
-                      kmc -l -i=10000001 -c key.conf\n\
+                        pathname must start with [method]_ such as rsa_key.conf\n\
+                        egg:\n\
+                          delete the volume key relation:\n\
+                          kmc -l -i=10000001 -c rsa_key.conf\n\
 "),
 			stdout);
 	fputs(
 			("\
-  -P, --pk_pathname public key pathname\n\
-                    egg:\n\
-                     print the volume key:\n\
-                      kmc -l -i=10000004 -k -P rsa_pub.key\n\
-"),
-			stdout);
-
-	fputs(
-			("\
-  -S, --sk_pathname secrite key pathname\n\
-                    egg:\n\
-                     print the volume key:\n\
-                     kmc -l -i=10000004 -k -S rsa_priv.key\n\
+  -P, --pk_pathname     public key pathname\n\
+                        egg:\n\
+                         print the volume key:\n\
+                           kmc -l -i=10000004 -k -P rsa_pub.key\n\
 "),
 			stdout);
 
 	fputs(
 			("\
-  -r, --remove      delete the volume key or volume key relation\n\
-                    egg:\n\
-                     delete the volume key:\n\
-                      kmc -r -i=10000004\n\
-                     delete the volume key relation:\n\
-                      kmc -r -u=550E8400-E29B-11D4-A716-44665544asdf\n\
+  -S, --sk_pathname     secrete key pathname\n\
+                        egg:\n\
+                         print the volume key:\n\
+                          kmc -l -i=10000004 -k -S rsa_priv.key\n\
+"),
+			stdout);
+
+	fputs(
+			("\
+  -r, --remove          delete the volume key or volume key relation\n\
+                        egg:\n\
+                         delete the volume key:\n\
+                          kmc -r -i=10000004\n\
+                         delete the volume key relation:\n\
+                          kmc -r -u=550E8400-E29B-11D4-A716-44665544asdf\n\
 "),
 			stdout);
 	fputs(
@@ -189,10 +191,8 @@ int decode_switch(int argc, char **argv, struct kmc_option *x)
 			break;
 
 		case 'h':
-			if (x->mode > 0)
-				show_command_error();
-			x->mode = HELP_CMD;
-			break;
+			do_help();
+			exit(0);
 
 		case 'k':
 			x->plain_key = true;
@@ -229,6 +229,7 @@ int decode_switch(int argc, char **argv, struct kmc_option *x)
 			break;
 
 		case '?':
+			exit(1);
 			break;
 
 		default:
@@ -246,11 +247,6 @@ int do_list(const struct kmc_option *x)
 	{
 		struct encrypt_operations *en = set_encryption_method("rsa",
 				x->sk_pathname, x->pk_pathname);
-		if(en == NULL)
-		{
-			fprintf(stderr, "key error\n");
-			exit(1);
-		}
 
 		if (x->id && strlen(x->id_content) != 0)
 			return do_list_key(x->config_pathname, x->id_content, en);
@@ -291,7 +287,7 @@ void rand_temp_pathname(const char *old_pathname, char *pathname, size_t len)
 	sprintf(buf, "%d", rand() % 10000);
 	strcpy(pathname, old_pathname);
 	strcat(pathname, buf);
-	if(access(pathname, "r") == 0) // if temp file exist, generate another temp file pathname	
+	if (access(pathname, 0) == 0) // if temp file exist, generate another temp pathname
 		rand_temp_pathname(old_pathname, pathname, len);
 }
 
@@ -324,9 +320,51 @@ int do_remove(const struct kmc_option *x)
 	return -1;
 }
 
-int command(const struct kmc_option *x)
+/**
+ * get method form pathname
+ * such as:
+ * 		pathname = /home/pc/workspace/rsa_key.conf
+ * 		filename = rsa_key.conf
+ * 		method = rsa
+ *
+ */
+int get_method_from_config_pathname(const char *pathname, char *method,
+		size_t len)
 {
-	set_encryption_method("rsa", x->sk_pathname, x->pk_pathname);
+	int i = strlen(pathname) - 1;
+	int l_index = 0, r_index = -1;
+	while (i >= 0)
+	{
+		if (pathname[i] == '_')
+			r_index = i;
+		else if (pathname[i] == '/')
+		{
+			l_index = 1 + i;
+			break;
+		}
+		--i;
+	}
+
+	if (r_index <= 0 || r_index - l_index >= len)
+		return -1;
+
+	for (i = 0; l_index < r_index; i++, l_index++)
+		method[i] = pathname[l_index];
+	method[i] = '\0';
+
+	return 0;
+}
+
+int do_command(const struct kmc_option *x)
+{
+	char method[NAME_MAX];
+	if (get_method_from_config_pathname(x->config_pathname, method, NAME_MAX)
+			< 0)
+	{
+		fprintf(stderr, "%s configure filename error, get more by kmc --help.\n", x->config_pathname);
+		exit(1);
+	}
+	set_encryption_method(method, x->sk_pathname, x->pk_pathname);
 
 	switch (x->mode)
 	{
@@ -339,12 +377,9 @@ int command(const struct kmc_option *x)
 	case REMOVE_CMD:
 		do_remove(x);
 		break;
-	case HELP_CMD:
-		do_help();
-		break;
 	default:
-		fprintf(stderr, "command error\n");
-		exit(-1);
+		show_command_error();
+		exit(1);
 	}
 
 	return 0;
@@ -359,7 +394,7 @@ int main(int argc, char ** argv)
 	{
 		kmc_option_init(x);
 		decode_switch(argc, argv, x);
-		status = command(x);
+		status = do_command(x);
 		free(x);
 		return status;
 	}

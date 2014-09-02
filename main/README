@@ -5,7 +5,7 @@ INSTALLATION
 ------------
 This project used RSA and BASE64 function for Asymmetric encryption, so to install this package under a Unix derivative, you need install openssl1.0.1h first. Download install package from website(http://www.openssl.org/), then install openssl.
  
- If you want to just get on with it, do:
+ If you just want to start, then
 
   $ make
 
