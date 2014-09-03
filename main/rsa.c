@@ -80,8 +80,8 @@ char *rsa_encrypt(const char *plain_text, char *result, size_t size, const char 
 	memset(cipher, 0, len + 1);
 
 	if (0
-			> RSA_public_encrypt(len, (unsigned char *) plain_text,
-					(unsigned char*) cipher, rsa, RSA_NO_PADDING))
+			> RSA_public_encrypt(strlen(plain_text), (unsigned char *) plain_text,
+					(unsigned char*) cipher, rsa, RSA_PKCS1_PADDING))
 	{
 		RSA_free(rsa);
 		free(cipher);
@@ -125,7 +125,7 @@ char *rsa_decrypt(const char *cipher, char *plain_text, size_t size, const char 
 
 	if (0
 			> RSA_private_decrypt(len, (unsigned char *) temp,
-					(unsigned char*) plain_text, rsa, RSA_NO_PADDING))
+					(unsigned char*) plain_text, rsa, RSA_PKCS1_PADDING))
 	{
 		RSA_free(rsa);
 		return NULL ;
