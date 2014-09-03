@@ -49,6 +49,17 @@ void receive_volume_key(int sockfd, const struct kmd_option *x)
 		fwrite(buffer, sizeof(char), data_len, f);
 	}
 	fclose(f);
+	
+	FILE *fp = fopen(x->config_pathname, "r");
+	if(NULL == fp)
+	{
+		fprintf(stderr, "%s used, try later\n", x->config_pathname);	
+		exit(-1);
+	}
+	flock(fileno(f), LOCK_EX); //if locked, then wait
+	flock(fileno(f), LOCK_UN); // unlcok and rename the file
+	fclose(fp);
+	rename(x->temp_pathname, x->config_pathname);
 }
 
 
